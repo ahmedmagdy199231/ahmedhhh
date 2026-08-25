@@ -64,9 +64,7 @@ const defaultSplash = join(drawableDir, "splash.png");
 const portSplashSrc = join(ANDROID_RES, "drawable-port-xxxhdpi/splash.png");
 if (existsSync(portSplashSrc)) {
   const splashBuf = readFileSync(portSplashSrc);
-  if (!existsSync(defaultSplash)) {
-    writeFileSync(defaultSplash, splashBuf);
-  }
+  writeFileSync(defaultSplash, splashBuf);
   for (const d of densities) {
     const dDir = join(ANDROID_RES, `drawable-${d}`);
     if (!existsSync(dDir)) mkdirSync(dDir, { recursive: true });

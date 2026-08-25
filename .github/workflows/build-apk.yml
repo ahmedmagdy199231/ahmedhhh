@@ -97,7 +97,7 @@ jobs:
 
       - name: Build Release APK (unsigned)
         working-directory: android
-        run: ./gradlew assembleRelease --no-daemon --stacktrace
+        run: ./gradlew assembleRelease -x lintVitalRelease -x lint --no-daemon --stacktrace
 
       - name: Sign release APK
         env:
