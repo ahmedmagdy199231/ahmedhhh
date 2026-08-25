@@ -57,4 +57,24 @@ if (existsSync(valuesDir)) {
   );
 }
 
-console.log(`[patch-android-icon] launcher icon replaced in ${densities.length} densities (${iconBuf.length} bytes).`);
+// Ensure default splash drawables exist in drawable and drawable-* folders to avoid MissingDefaultResource lint errors
+const drawableDir = join(ANDROID_RES, "drawable");
+if (!existsSync(drawableDir)) mkdirSync(drawableDir, { recursive: true });
+const defaultSplash = join(drawableDir, "splash.png");
+const portSplashSrc = join(ANDROID_RES, "drawable-port-xxxhdpi/splash.png");
+if (existsSync(portSplashSrc)) {
+  const splashBuf = readFileSync(portSplashSrc);
+  if (!existsSync(defaultSplash)) {
+    writeFileSync(defaultSplash, splashBuf);
+  }
+  for (const d of densities) {
+    const dDir = join(ANDROID_RES, `drawable-${d}`);
+    if (!existsSync(dDir)) mkdirSync(dDir, { recursive: true });
+    const dSplash = join(dDir, "splash.png");
+    const portDensitySplash = join(ANDROID_RES, `drawable-port-${d}/splash.png`);
+    const buf = existsSync(portDensitySplash) ? readFileSync(portDensitySplash) : splashBuf;
+    writeFileSync(dSplash, buf);
+  }
+}
+
+console.log(`[patch-android-icon] launcher icon and splash drawables configured.`);
