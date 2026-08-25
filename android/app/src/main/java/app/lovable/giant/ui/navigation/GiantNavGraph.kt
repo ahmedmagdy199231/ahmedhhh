@@ -11,10 +11,13 @@ import app.lovable.giant.ui.auth.LoginScreen
 import app.lovable.giant.ui.auth.RegisterScreen
 import app.lovable.giant.ui.chats.ChatsListScreen
 import app.lovable.giant.ui.chats.DirectChatScreen
+import app.lovable.giant.ui.community.CommunityScreen
 import app.lovable.giant.ui.profile.ProfileScreen
 import app.lovable.giant.ui.rooms.RoomDetailScreen
 import app.lovable.giant.ui.rooms.RoomsListScreen
 import app.lovable.giant.ui.splash.SplashScreen
+import app.lovable.giant.ui.store.StoreScreen
+import app.lovable.giant.ui.tasks.DailyTasksScreen
 
 sealed class Screen(val route: String) {
     object Splash : Screen("splash")
@@ -29,6 +32,9 @@ sealed class Screen(val route: String) {
         fun createRoute(otherUserId: String) = "direct_chat/$otherUserId"
     }
     object Profile : Screen("profile")
+    object Store : Screen("store")
+    object DailyTasks : Screen("daily_tasks")
+    object Community : Screen("community")
 }
 
 @Composable
@@ -91,6 +97,39 @@ fun GiantNavGraph(
                 },
                 onNavigateToProfile = {
                     navController.navigate(Screen.Profile.route)
+                },
+                onNavigateToStore = {
+                    navController.navigate(Screen.Store.route)
+                },
+                onNavigateToTasks = {
+                    navController.navigate(Screen.DailyTasks.route)
+                },
+                onNavigateToCommunity = {
+                    navController.navigate(Screen.Community.route)
+                }
+            )
+        }
+
+        composable(Screen.Community.route) {
+            CommunityScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        composable(Screen.Store.route) {
+            StoreScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        composable(Screen.DailyTasks.route) {
+            DailyTasksScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
                 }
             )
         }

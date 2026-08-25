@@ -6,6 +6,8 @@ import app.lovable.giant.GiantApplication
 import app.lovable.giant.data.models.ChatMessage
 import app.lovable.giant.data.models.Room
 import app.lovable.giant.data.remote.SupabaseRestClient
+import app.lovable.giant.webrtc.NativeVoiceRoomController
+import app.lovable.giant.webrtc.models.VoiceRoomState
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -22,15 +24,12 @@ sealed class SingleRoomUiState {
 class SingleRoomViewModel(private val roomId: String) : ViewModel() {
     private val restClient = SupabaseRestClient()
     private val sessionRepo = GiantApplication.instance.sessionRepository
+    private val voiceController = NativeVoiceRoomController.getInstance(GiantApplication.instance)
 
     private val _uiState = MutableStateFlow<SingleRoomUiState>(SingleRoomUiState.Loading)
     val uiState: StateFlow<SingleRoomUiState> = _uiState.asStateFlow()
 
-    private val _isMuted = MutableStateFlow(true)
-    val isMuted: StateFlow<Boolean> = _isMuted.asStateFlow()
-
-    private val _isSpeakerOn = MutableStateFlow(true)
-    val isSpeakerOn: StateFlow<Boolean> = _isSpeakerOn.asStateFlow()
+    val voiceState: StateFlow<VoiceRoomState> = voiceController.roomState
 
     private var currentRoom: Room? = null
     private val currentMessages = mutableListOf<ChatMessage>()
@@ -51,6 +50,13 @@ class SingleRoomViewModel(private val roomId: String) : ViewModel() {
                 currentRoom = r
                 if (session != null && !token.isNullOrEmpty()) {
                     restClient.joinRoom(roomId, session.userId, token)
+                    // Start Native WebRTC voice room session
+                    voiceController.enterRoom(
+                        roomId = roomId,
+                        roomName = r.name,
+                        userId = session.userId,
+                        token = token
+                    )
                 }
                 loadMessages()
             }.onFailure { err ->
@@ -111,11 +117,51 @@ class SingleRoomViewModel(private val roomId: String) : ViewModel() {
     }
 
     fun toggleMic() {
-        _isMuted.value = !_isMuted.value
+        voiceController.toggleMic()
     }
 
     fun toggleSpeaker() {
-        _isSpeakerOn.value = !_isSpeakerOn.value
+        voiceController.toggleSpeaker()
+    }
+
+    fun joinStage() {
+        voiceController.joinStage()
+    }
+
+    fun leaveStage() {
+        voiceController.leaveStage()
+    }
+
+    fun raiseHand() {
+        voiceController.raiseHand()
+    }
+
+    fun lowerHand() {
+        voiceController.lowerHand()
+    }
+
+    fun acceptInvite() {
+        voiceController.acceptInvite()
+    }
+
+    fun rejectInvite() {
+        voiceController.rejectInvite()
+    }
+
+    fun inviteUser(userId: String) {
+        voiceController.inviteUser(userId)
+    }
+
+    fun muteSpeaker(userId: String, muted: Boolean) {
+        voiceController.muteSpeaker(userId, muted)
+    }
+
+    fun kickSpeaker(userId: String) {
+        voiceController.kickSpeaker(userId)
+    }
+
+    fun retryConnection() {
+        voiceController.retryConnection()
     }
 
     fun leaveRoom(onLeft: () -> Unit) {
@@ -125,7 +171,14 @@ class SingleRoomViewModel(private val roomId: String) : ViewModel() {
             if (session != null && !token.isNullOrEmpty()) {
                 restClient.leaveRoom(roomId, session.userId, token)
             }
+            voiceController.leaveRoom()
             onLeft()
         }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        // Do not leave stage if just navigating back and user wants audio in background,
+        // unless explicitly left via leaveRoom.
     }
 }

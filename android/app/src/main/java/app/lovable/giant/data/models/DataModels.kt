@@ -82,3 +82,46 @@ data class UserProfile(
     val pendingEmail: String? = null,
     val badges: List<UserBadge> = emptyList()
 )
+
+data class ShopItemModel(
+    val id: String,
+    val kind: String, // badge, avatar_frame, name_color, chat_color, effect
+    val code: String,
+    val nameAr: String,
+    val price: Long,
+    val payload: String = "{}",
+    val sortOrder: Int = 0,
+    val genderTarget: String? = null,
+    val colorHex: String? = null,
+    val previewEmoji: String? = null
+)
+
+data class GiftCatalogModel(
+    val id: String,
+    val name: String,
+    val emoji: String? = null,
+    val costPoints: Long,
+    val scope: String = "room", // room or global
+    val category: String? = null
+)
+
+data class DailyTaskModel(
+    val kind: String,
+    val label: String,
+    val target: Int,
+    val reward: Long,
+    val progress: Int,
+    val claimed: Boolean
+)
+
+data class LevelThresholdModel(
+    val level: Int,
+    val minPoints: Long,
+    val name: String
+)
+
+data class RoomMemberItem(
+    val userId: String,
+    val username: String,
+    val avatarUrl: String? = null
+)

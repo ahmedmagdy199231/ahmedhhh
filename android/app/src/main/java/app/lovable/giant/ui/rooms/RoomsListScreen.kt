@@ -20,12 +20,15 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Checklist
+import androidx.compose.material.icons.filled.DynamicFeed
 import androidx.compose.material.icons.filled.Forum
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Message
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.ShoppingBag
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -69,6 +72,9 @@ fun RoomsListScreen(
     onNavigateToRoom: (String) -> Unit,
     onNavigateToChats: () -> Unit,
     onNavigateToProfile: () -> Unit,
+    onNavigateToStore: () -> Unit,
+    onNavigateToTasks: () -> Unit,
+    onNavigateToCommunity: () -> Unit,
     viewModel: RoomsViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -81,7 +87,7 @@ fun RoomsListScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(CardBg)
-                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                    .padding(horizontal = 12.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
@@ -90,18 +96,39 @@ fun RoomsListScreen(
                         imageVector = Icons.Default.Forum,
                         contentDescription = null,
                         tint = PrimaryEmerald,
-                        modifier = Modifier.size(28.dp)
+                        modifier = Modifier.size(26.dp)
                     )
-                    Spacer(modifier = Modifier.width(10.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "الغرف الصوتية",
-                        fontSize = 20.sp,
+                        fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
                         color = TextPrimary
                     )
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = onNavigateToCommunity) {
+                        Icon(
+                            imageVector = Icons.Default.DynamicFeed,
+                            contentDescription = "المجتمع والقصص",
+                            tint = Color(0xFFA78BFA)
+                        )
+                    }
+                    IconButton(onClick = onNavigateToStore) {
+                        Icon(
+                            imageVector = Icons.Default.ShoppingBag,
+                            contentDescription = "المتجر",
+                            tint = Color(0xFFFBBF24)
+                        )
+                    }
+                    IconButton(onClick = onNavigateToTasks) {
+                        Icon(
+                            imageVector = Icons.Default.Checklist,
+                            contentDescription = "المهام والجوائز",
+                            tint = Color(0xFF38BDF8)
+                        )
+                    }
                     IconButton(onClick = onNavigateToChats) {
                         Icon(
                             imageVector = Icons.Default.Message,
