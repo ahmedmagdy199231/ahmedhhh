@@ -1,0 +1,201 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-success: var(--success);
+  --color-online: var(--online);
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+}
+
+/* Light mode — refined emerald with neutral surfaces (more professional) */
+:root {
+  --radius: 0.875rem;
+  --background: oklch(0.985 0.003 160);
+  --foreground: oklch(0.16 0.015 160);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.16 0.015 160);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.16 0.015 160);
+  --primary: oklch(0.54 0.13 160);
+  --primary-foreground: oklch(0.99 0.003 160);
+  --secondary: oklch(0.96 0.008 160);
+  --secondary-foreground: oklch(0.2 0.02 160);
+  --muted: oklch(0.955 0.006 160);
+  --muted-foreground: oklch(0.5 0.015 160);
+  --accent: oklch(0.93 0.035 160);
+  --accent-foreground: oklch(0.22 0.04 160);
+  --destructive: oklch(0.56 0.2 25);
+  --destructive-foreground: oklch(0.985 0 0);
+  --border: oklch(0.9 0.008 160);
+  --input: oklch(0.94 0.008 160);
+  --ring: oklch(0.54 0.13 160);
+  --success: oklch(0.62 0.15 160);
+  --online: oklch(0.68 0.16 150);
+}
+
+/* Dark mode — deep slate with refined emerald accent */
+.dark {
+  --background: oklch(0.14 0.008 220);
+  --foreground: oklch(0.96 0.005 160);
+  --card: oklch(0.18 0.01 220);
+  --card-foreground: oklch(0.96 0.005 160);
+  --popover: oklch(0.18 0.01 220);
+  --popover-foreground: oklch(0.96 0.005 160);
+  --primary: oklch(0.7 0.15 160);
+  --primary-foreground: oklch(0.12 0.015 220);
+  --secondary: oklch(0.23 0.012 220);
+  --secondary-foreground: oklch(0.96 0.005 160);
+  --muted: oklch(0.22 0.01 220);
+  --muted-foreground: oklch(0.7 0.012 220);
+  --accent: oklch(0.28 0.04 160);
+  --accent-foreground: oklch(0.96 0.005 160);
+  --destructive: oklch(0.62 0.2 25);
+  --destructive-foreground: oklch(0.98 0 0);
+  --border: oklch(0.26 0.012 220);
+  --input: oklch(0.24 0.012 220);
+  --ring: oklch(0.7 0.15 160);
+  --success: oklch(0.72 0.15 160);
+  --online: oklch(0.74 0.16 150);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+    -webkit-tap-highlight-color: transparent;
+  }
+  html {
+    font-family: var(--font-sans);
+    /* Prevent iOS text auto-zoom in landscape */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    /* Use dynamic viewport units so iOS Safari bottom bar / Android keyboard
+       don't break full-height layouts */
+    height: 100%;
+  }
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    /* Disable pull-to-refresh and rubber-band that conflicts with chat UX */
+    overscroll-behavior-y: none;
+    /* Avoid iOS double-tap zoom on buttons */
+    touch-action: manipulation;
+    min-height: 100vh;
+    min-height: 100dvh;
+    background-image:
+      linear-gradient(180deg, color-mix(in oklab, var(--background) 70%, transparent), color-mix(in oklab, var(--background) 88%, transparent)),
+      url("./assets/app-bg-v2.jpg");
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    background-repeat: no-repeat;
+  }
+  .dark body {
+    background-image:
+      linear-gradient(180deg, color-mix(in oklab, var(--background) 82%, transparent), color-mix(in oklab, var(--background) 94%, transparent)),
+      url("./assets/app-bg-v2.jpg");
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    background-repeat: no-repeat;
+  }
+  /* iOS WebKit zooms inputs whose font-size < 16px. Force 16px minimum. */
+  input, textarea, select {
+    font-size: 16px;
+  }
+  @media (min-width: 768px) {
+    input, textarea, select { font-size: inherit; }
+  }
+  /* Prevent long-press selection on UI chrome (chat bubbles keep their own) */
+  button, [role="button"], nav, header {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+  /* Use dynamic viewport height where supported (iOS Safari address bar fix) */
+  .min-h-screen { min-height: 100vh; min-height: 100dvh; }
+  .h-screen { height: 100vh; height: 100dvh; }
+}
+
+/* subtle bubble animations */
+@keyframes bubble-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.bubble-in { animation: bubble-in 180ms ease-out; }
+
+/* online pulse */
+@keyframes online-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 var(--online); }
+  50% { box-shadow: 0 0 0 4px transparent; }
+}
+.online-dot {
+  background: var(--online);
+  animation: online-pulse 2s ease-in-out infinite;
+}
+
+/* Hide Lovable badge globally */
+#lovable-badge,
+[id="lovable-badge"] {
+  display: none !important;
+}
+
+/* Flying entrance effect */
+@keyframes fly-up {
+  0% { transform: translate(0, 0) rotate(0deg); opacity: 0; }
+  10% { opacity: 1; }
+  100% { transform: translate(var(--drift, 0), -110vh) rotate(360deg); opacity: 0; }
+}
+
+/* Modern floating tab bar */
+.glass-tab {
+  background: color-mix(in oklab, var(--card) 75%, transparent);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
+  box-shadow: 0 8px 30px -10px color-mix(in oklab, var(--primary) 30%, transparent);
+}
+
+@keyframes fly {
+  0%   { transform: translate(-50%, 0) scale(0.6); opacity: 0; }
+  20%  { transform: translate(-50%, -10px) scale(1.2); opacity: 1; }
+  100% { transform: translate(-50%, -120px) scale(1.6); opacity: 0; }
+}
+
+@keyframes slide {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(300%); }
+}
+
+@keyframes wave {
+  0%, 100% { transform: scaleY(0.4); }
+  50% { transform: scaleY(1); }
+}

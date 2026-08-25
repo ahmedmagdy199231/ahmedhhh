@@ -1,0 +1,140 @@
+name: OTA Release
+
+# يعمل تلقائياً بعد نجاح Build Android APK على main
+# الخطوات:
+#   1. بناء نسخة الويب (CAPACITOR_BUILD=1)
+#   2. ضغطها bundle.zip
+#   3. رفع bundle.zip مباشرة إلى /api/public/ota-publish لتخزينه كرابط تنزيل صالح
+#   4. تفعيله كـ OTA للمستخدمين
+
+on:
+  workflow_run:
+    workflows: ["Build Android APK"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      rollback:
+        description: 'Rollback to previous OTA bundle'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write  # مطلوب لإنشاء GitHub Release
+
+concurrency:
+  group: ota-release
+  cancel-in-progress: false
+
+jobs:
+  rollback:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.rollback }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call rollback endpoint
+        env:
+          OTA_PUBLISH_SECRET: ${{ secrets.OTA_PUBLISH_SECRET }}
+          OTA_ENDPOINT: https://giant-chat.lovable.app/api/public/ota-publish
+        run: |
+          BODY='{"action":"rollback"}'
+          TS=$(date +%s)
+          SIG=$(printf '%s.%s' "$TS" "$BODY" | openssl dgst -sha256 -hmac "$OTA_PUBLISH_SECRET" | awk '{print $2}')
+          curl -fsSL -X POST "$OTA_ENDPOINT" \
+            -H "content-type: application/json" \
+            -H "x-ota-timestamp: $TS" \
+            -H "x-ota-signature: $SIG" \
+            --data "$BODY"
+
+  publish:
+    if: ${{ (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || (github.event_name == 'workflow_dispatch' && !inputs.rollback) }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install deps
+        run: bun install --frozen-lockfile
+
+      - name: Auto-bump app version (match triggering APK build)
+        run: node scripts/bump-version.mjs patch
+        env:
+          # Use the run number of the triggering Build-APK workflow so the OTA
+          # bundle version matches the APK version exactly. Falls back to this
+          # workflow's run number for manual dispatches.
+          GITHUB_RUN_NUMBER: ${{ github.event.workflow_run.run_number || github.run_number }}
+
+
+      - name: Show app version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "📌 Building OTA bundle for version: $VERSION"
+
+
+
+
+
+      - name: Build web bundle
+        env:
+          CAPACITOR_BUILD: '1'
+        run: bun run build
+
+      - name: Resolve build output dir
+        id: outdir
+        run: |
+          if [ -d "dist/client" ]; then
+            echo "dir=dist/client" >> "$GITHUB_OUTPUT"
+          elif [ -d "dist" ]; then
+            echo "dir=dist" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::No build output directory found"; exit 1
+          fi
+
+      - name: Create bundle.zip
+        run: |
+          cd "${{ steps.outdir.outputs.dir }}"
+          zip -r "$GITHUB_WORKSPACE/bundle.zip" .
+
+      - name: Compute version
+        id: ver
+        run: |
+          VERSION=$(node -p 'require("./package.json").version')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Compute bundle hash
+        id: bundle
+        run: echo "sha256=$(sha256sum bundle.zip | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+
+      - name: Publish OTA via signed endpoint
+        env:
+          OTA_PUBLISH_SECRET: ${{ secrets.OTA_PUBLISH_SECRET }}
+          OTA_ENDPOINT: https://giant-chat.lovable.app/api/public/ota-publish
+          VERSION: ${{ steps.ver.outputs.version }}
+          SHA256: ${{ steps.bundle.outputs.sha256 }}
+          MSG: |-
+            🚀 تحديث جديد متاح!
+
+            ✨ ما الجديد في هذا التحديث:
+            • تحسين أداء التطبيق وسرعة التنقل بين الصفحات.
+            • تطوير نظام التحديثات ليصل الإصدار الجديد للمستخدمين أصحاب النسخ القديمة.
+            • إصلاح مشكلة ظهور تحديثات قديمة أو غير مكتملة.
+            • تحسينات عامة في الاستقرار وتجربة الاستخدام.
+
+            📲 ننصح بالتحديث الآن للاستفادة من أحدث التحسينات.
+        run: |
+          TS=$(date +%s)
+          SIG=$(printf '%s.%s.%s' "$TS" "$VERSION" "$SHA256" | openssl dgst -sha256 -hmac "$OTA_PUBLISH_SECRET" | awk '{print $2}')
+          MSG_B64=$(printf '%s' "$MSG" | base64 -w 0)
+          echo "Publishing OTA $VERSION ($SHA256)"
+          curl -fsSL -X POST "$OTA_ENDPOINT" \
+            -H "content-type: application/zip" \
+            -H "x-ota-timestamp: $TS" \
+            -H "x-ota-signature: $SIG" \
+            -H "x-ota-version: $VERSION" \
+            -H "x-ota-sha256: $SHA256" \
+            -H "x-ota-message-b64: $MSG_B64" \
+            --data-binary @bundle.zip
