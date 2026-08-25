@@ -14,11 +14,15 @@ import app.lovable.giant.data.models.LevelThresholdModel
 import app.lovable.giant.data.models.Room
 import app.lovable.giant.data.models.RoomMemberItem
 import app.lovable.giant.data.models.SearchUserItem
+import app.lovable.giant.data.models.MusicQueueItem
+import app.lovable.giant.data.models.MusicTrackModel
+import app.lovable.giant.data.models.RoomMusicModel
 import app.lovable.giant.data.models.ShopItemModel
 import app.lovable.giant.data.models.StoryItemModel
 import app.lovable.giant.data.models.StoryReactionItem
 import app.lovable.giant.data.models.StoryUserModel
 import app.lovable.giant.data.models.StoryViewItem
+import app.lovable.giant.data.models.TrackResultModel
 import app.lovable.giant.data.models.UserBadge
 import app.lovable.giant.data.models.UserProfile
 import app.lovable.giant.data.models.UserSession
@@ -1977,6 +1981,289 @@ class SupabaseRestClient {
                 Result.success(true)
             } else {
                 Result.failure(Exception("Failed to comment on story: ${conn.responseCode}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun recordGameWin(game: String, points: Int, token: String): Result<Boolean> = withContext(Dispatchers.IO) {
+        try {
+            val url = URL("$baseUrl/rest/v1/rpc/record_game_win")
+            val conn = (url.openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"
+                setRequestProperty("apikey", apiKey)
+                setRequestProperty("Authorization", "Bearer $token")
+                setRequestProperty("Content-Type", "application/json")
+                doOutput = true
+            }
+
+            val payload = JSONObject().apply {
+                put("_game", game)
+                put("_points", points)
+            }
+
+            OutputStreamWriter(conn.outputStream).use { it.write(payload.toString()) }
+
+            if (conn.responseCode in 200..299) {
+                Result.success(true)
+            } else {
+                val err = BufferedReader(InputStreamReader(conn.errorStream ?: conn.inputStream)).use { it.readText() }
+                Result.failure(Exception("Failed to record win: ${conn.responseCode} ($err)"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getRoomMusic(roomId: String, token: String? = null): Result<RoomMusicModel?> = withContext(Dispatchers.IO) {
+        try {
+            val url = URL("$baseUrl/rest/v1/room_music?room_id=eq.$roomId&select=*")
+            val conn = (url.openConnection() as HttpURLConnection).apply {
+                requestMethod = "GET"
+                setRequestProperty("apikey", apiKey)
+                if (!token.isNullOrEmpty()) {
+                    setRequestProperty("Authorization", "Bearer $token")
+                }
+                connectTimeout = 15000
+                readTimeout = 15000
+            }
+
+            if (conn.responseCode in 200..299) {
+                val responseStr = BufferedReader(InputStreamReader(conn.inputStream)).use { it.readText() }
+                val jsonArray = JSONArray(responseStr)
+                if (jsonArray.length() == 0) {
+                    Result.success(null)
+                } else {
+                    val obj = jsonArray.getJSONObject(0)
+                    val curObj = obj.optJSONObject("current")
+                    val currentTrack = if (curObj != null) {
+                        MusicTrackModel(
+                            videoId = curObj.optString("videoId").takeIf { it.isNotBlank() },
+                            title = curObj.optString("title", "بدون عنوان"),
+                            artist = curObj.optString("artist", "فنان غير معروف"),
+                            artwork = curObj.optString("artwork", ""),
+                            previewUrl = curObj.optString("preview_url", ""),
+                            durationMs = curObj.optLong("duration_ms", 0),
+                            requesterName = curObj.optString("requester_name").takeIf { it.isNotBlank() },
+                            requesterId = curObj.optString("requester_id").takeIf { it.isNotBlank() }
+                        )
+                    } else null
+
+                    val queueArray = obj.optJSONArray("queue") ?: JSONArray()
+                    val queueList = mutableListOf<MusicQueueItem>()
+                    for (i in 0 until queueArray.length()) {
+                        val qObj = queueArray.getJSONObject(i)
+                        queueList.add(
+                            MusicQueueItem(
+                                title = qObj.optString("title", ""),
+                                artist = qObj.optString("artist", "")
+                            )
+                        )
+                    }
+
+                    Result.success(
+                        RoomMusicModel(
+                            current = currentTrack,
+                            queue = queueList,
+                            startedAt = obj.optString("started_at").takeIf { it.isNotBlank() },
+                            paused = obj.optBoolean("paused", false),
+                            pausedPosMs = obj.optLong("paused_pos_ms", 0),
+                            volume = obj.optInt("volume", 70)
+                        )
+                    )
+                }
+            } else {
+                Result.failure(Exception("Failed to load room music: ${conn.responseCode}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun musicPlay(roomId: String, track: MusicTrackModel, token: String): Result<Boolean> = withContext(Dispatchers.IO) {
+        try {
+            val url = URL("$baseUrl/rest/v1/rpc/music_play")
+            val conn = (url.openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"
+                setRequestProperty("apikey", apiKey)
+                setRequestProperty("Authorization", "Bearer $token")
+                setRequestProperty("Content-Type", "application/json")
+                doOutput = true
+            }
+
+            val trackJson = JSONObject().apply {
+                put("title", track.title)
+                put("artist", track.artist)
+                put("artwork", track.artwork)
+                put("preview_url", track.previewUrl)
+                put("duration_ms", track.durationMs)
+                if (track.videoId != null) put("videoId", track.videoId)
+                if (track.requesterName != null) put("requester_name", track.requesterName)
+                if (track.requesterId != null) put("requester_id", track.requesterId)
+            }
+
+            val payload = JSONObject().apply {
+                put("_room", roomId)
+                put("_track", trackJson)
+            }
+
+            OutputStreamWriter(conn.outputStream).use { it.write(payload.toString()) }
+
+            if (conn.responseCode in 200..299) {
+                Result.success(true)
+            } else {
+                val err = BufferedReader(InputStreamReader(conn.errorStream ?: conn.inputStream)).use { it.readText() }
+                Result.failure(Exception("Failed to play music: ${conn.responseCode} ($err)"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun musicPause(roomId: String, token: String): Result<Boolean> = withContext(Dispatchers.IO) {
+        try {
+            val url = URL("$baseUrl/rest/v1/rpc/music_pause")
+            val conn = (url.openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"
+                setRequestProperty("apikey", apiKey)
+                setRequestProperty("Authorization", "Bearer $token")
+                setRequestProperty("Content-Type", "application/json")
+                doOutput = true
+            }
+            val payload = JSONObject().apply { put("_room", roomId) }
+            OutputStreamWriter(conn.outputStream).use { it.write(payload.toString()) }
+            if (conn.responseCode in 200..299) Result.success(true) else Result.failure(Exception("Failed: ${conn.responseCode}"))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun musicResume(roomId: String, token: String): Result<Boolean> = withContext(Dispatchers.IO) {
+        try {
+            val url = URL("$baseUrl/rest/v1/rpc/music_resume")
+            val conn = (url.openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"
+                setRequestProperty("apikey", apiKey)
+                setRequestProperty("Authorization", "Bearer $token")
+                setRequestProperty("Content-Type", "application/json")
+                doOutput = true
+            }
+            val payload = JSONObject().apply { put("_room", roomId) }
+            OutputStreamWriter(conn.outputStream).use { it.write(payload.toString()) }
+            if (conn.responseCode in 200..299) Result.success(true) else Result.failure(Exception("Failed: ${conn.responseCode}"))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun musicSeek(roomId: String, posMs: Long, token: String): Result<Boolean> = withContext(Dispatchers.IO) {
+        try {
+            val url = URL("$baseUrl/rest/v1/rpc/music_seek")
+            val conn = (url.openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"
+                setRequestProperty("apikey", apiKey)
+                setRequestProperty("Authorization", "Bearer $token")
+                setRequestProperty("Content-Type", "application/json")
+                doOutput = true
+            }
+            val payload = JSONObject().apply {
+                put("_room", roomId)
+                put("_pos_ms", posMs)
+            }
+            OutputStreamWriter(conn.outputStream).use { it.write(payload.toString()) }
+            if (conn.responseCode in 200..299) Result.success(true) else Result.failure(Exception("Failed: ${conn.responseCode}"))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun musicSkip(roomId: String, token: String): Result<Boolean> = withContext(Dispatchers.IO) {
+        try {
+            val url = URL("$baseUrl/rest/v1/rpc/music_skip")
+            val conn = (url.openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"
+                setRequestProperty("apikey", apiKey)
+                setRequestProperty("Authorization", "Bearer $token")
+                setRequestProperty("Content-Type", "application/json")
+                doOutput = true
+            }
+            val payload = JSONObject().apply { put("_room", roomId) }
+            OutputStreamWriter(conn.outputStream).use { it.write(payload.toString()) }
+            if (conn.responseCode in 200..299) Result.success(true) else Result.failure(Exception("Failed: ${conn.responseCode}"))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun musicStop(roomId: String, token: String): Result<Boolean> = withContext(Dispatchers.IO) {
+        try {
+            val url = URL("$baseUrl/rest/v1/rpc/music_stop")
+            val conn = (url.openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"
+                setRequestProperty("apikey", apiKey)
+                setRequestProperty("Authorization", "Bearer $token")
+                setRequestProperty("Content-Type", "application/json")
+                doOutput = true
+            }
+            val payload = JSONObject().apply { put("_room", roomId) }
+            OutputStreamWriter(conn.outputStream).use { it.write(payload.toString()) }
+            if (conn.responseCode in 200..299) Result.success(true) else Result.failure(Exception("Failed: ${conn.responseCode}"))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun musicSetVolume(roomId: String, volume: Int, token: String): Result<Boolean> = withContext(Dispatchers.IO) {
+        try {
+            val url = URL("$baseUrl/rest/v1/rpc/music_set_volume")
+            val conn = (url.openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"
+                setRequestProperty("apikey", apiKey)
+                setRequestProperty("Authorization", "Bearer $token")
+                setRequestProperty("Content-Type", "application/json")
+                doOutput = true
+            }
+            val payload = JSONObject().apply {
+                put("_room", roomId)
+                put("_vol", volume)
+            }
+            OutputStreamWriter(conn.outputStream).use { it.write(payload.toString()) }
+            if (conn.responseCode in 200..299) Result.success(true) else Result.failure(Exception("Failed: ${conn.responseCode}"))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun searchTrack(query: String): Result<TrackResultModel?> = withContext(Dispatchers.IO) {
+        try {
+            val encoded = URLEncoder.encode(query, "UTF-8")
+            val url = URL("https://giant-chat.lovable.app/api/public/search-track?q=$encoded")
+            val conn = (url.openConnection() as HttpURLConnection).apply {
+                requestMethod = "GET"
+                connectTimeout = 10000
+                readTimeout = 10000
+            }
+            if (conn.responseCode in 200..299) {
+                val responseStr = BufferedReader(InputStreamReader(conn.inputStream)).use { it.readText() }
+                val j = JSONObject(responseStr)
+                val trackObj = j.optJSONObject("track")
+                if (trackObj != null) {
+                    Result.success(
+                        TrackResultModel(
+                            videoId = trackObj.optString("videoId").takeIf { it.isNotBlank() },
+                            title = trackObj.optString("title", "بدون عنوان"),
+                            artist = trackObj.optString("artist", "فنان غير معروف"),
+                            artwork = trackObj.optString("artwork", ""),
+                            previewUrl = trackObj.optString("preview_url", ""),
+                            durationMs = trackObj.optLong("duration_ms", 0)
+                        )
+                    )
+                } else {
+                    Result.success(null)
+                }
+            } else {
+                Result.failure(Exception("Search failed with code ${conn.responseCode}"))
             }
         } catch (e: Exception) {
             Result.failure(e)

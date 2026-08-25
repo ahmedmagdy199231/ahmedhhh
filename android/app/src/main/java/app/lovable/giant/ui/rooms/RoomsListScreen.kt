@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.ShoppingBag
+import androidx.compose.material.icons.filled.SportsEsports
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -75,6 +76,7 @@ fun RoomsListScreen(
     onNavigateToStore: () -> Unit,
     onNavigateToTasks: () -> Unit,
     onNavigateToCommunity: () -> Unit,
+    onNavigateToGames: () -> Unit = {},
     viewModel: RoomsViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -108,6 +110,13 @@ fun RoomsListScreen(
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = onNavigateToGames) {
+                        Icon(
+                            imageVector = Icons.Default.SportsEsports,
+                            contentDescription = "الألعاب",
+                            tint = Color(0xFFF43F5E)
+                        )
+                    }
                     IconButton(onClick = onNavigateToCommunity) {
                         Icon(
                             imageVector = Icons.Default.DynamicFeed,

@@ -12,6 +12,7 @@ import app.lovable.giant.ui.auth.RegisterScreen
 import app.lovable.giant.ui.chats.ChatsListScreen
 import app.lovable.giant.ui.chats.DirectChatScreen
 import app.lovable.giant.ui.community.CommunityScreen
+import app.lovable.giant.ui.games.GamesScreen
 import app.lovable.giant.ui.profile.ProfileScreen
 import app.lovable.giant.ui.rooms.RoomDetailScreen
 import app.lovable.giant.ui.rooms.RoomsListScreen
@@ -35,6 +36,7 @@ sealed class Screen(val route: String) {
     object Store : Screen("store")
     object DailyTasks : Screen("daily_tasks")
     object Community : Screen("community")
+    object Games : Screen("games")
 }
 
 @Composable
@@ -106,6 +108,17 @@ fun GiantNavGraph(
                 },
                 onNavigateToCommunity = {
                     navController.navigate(Screen.Community.route)
+                },
+                onNavigateToGames = {
+                    navController.navigate(Screen.Games.route)
+                }
+            )
+        }
+
+        composable(Screen.Games.route) {
+            GamesScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
                 }
             )
         }

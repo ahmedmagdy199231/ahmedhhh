@@ -60,6 +60,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -81,6 +82,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.lovable.giant.data.models.ChatMessage
+import app.lovable.giant.media.NativeRoomMusicController
 import app.lovable.giant.ui.gifts.GiftPickerBottomSheet
 import app.lovable.giant.ui.theme.BorderColor
 import app.lovable.giant.ui.theme.CardBg
@@ -114,6 +116,16 @@ fun RoomDetailScreen(
 
     val uiState by viewModel.uiState.collectAsState()
     val voiceState by viewModel.voiceState.collectAsState()
+
+    val musicController = remember(roomId) {
+        NativeRoomMusicController(roomId, context)
+    }
+
+    DisposableEffect(musicController) {
+        onDispose {
+            musicController.release()
+        }
+    }
 
     var messageText by remember { mutableStateOf("") }
     var showGiftPicker by remember { mutableStateOf(false) }
@@ -492,6 +504,9 @@ fun RoomDetailScreen(
                                 }
                             }
                         }
+
+                        // Room Music Player Bar (ExoPlayer Native + Supabase Sync)
+                        RoomMusicPlayerBar(musicController = musicController)
 
                         // Native WebRTC Voice Stage Section
                         NativeVoiceStageSection(

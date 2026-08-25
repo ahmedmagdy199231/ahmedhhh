@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -296,44 +297,57 @@ fun DirectMessageBubble(
     isMine: Boolean,
     onLongClick: () -> Unit
 ) {
+    val trackPair = remember(message.content) {
+        TrackDMParser.tryParseTrackDM(message.content)
+    }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onLongClick() },
         horizontalAlignment = if (isMine) Alignment.End else Alignment.Start
     ) {
-        Card(
-            shape = RoundedCornerShape(
-                topStart = 16.dp,
-                topEnd = 16.dp,
-                bottomStart = if (isMine) 16.dp else 4.dp,
-                bottomEnd = if (isMine) 4.dp else 16.dp
-            ),
-            colors = CardDefaults.cardColors(
-                containerColor = if (isMine) PrimaryEmerald else CardBg
-            ),
-            modifier = Modifier.widthIn(max = 280.dp)
-        ) {
-            Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
-                Text(
-                    text = message.content,
-                    color = if (isMine) Color.White else TextPrimary,
-                    fontSize = 14.sp,
-                    lineHeight = 19.sp
-                )
-                Spacer(modifier = Modifier.height(3.dp))
-                Row(
-                    modifier = Modifier.align(Alignment.End),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    if (isMine) {
-                        val isRead = !message.readAt.isNullOrEmpty() && message.readAt != "null"
-                        Icon(
-                            imageVector = if (isRead) Icons.Default.DoneAll else Icons.Default.Check,
-                            contentDescription = null,
-                            tint = if (isRead) Color(0xFF67E8F9) else Color.White.copy(alpha = 0.7f),
-                            modifier = Modifier.size(13.dp)
-                        )
+        if (trackPair != null) {
+            TrackDMPlayerView(
+                track = trackPair.first,
+                senderName = trackPair.second,
+                isMine = isMine,
+                modifier = Modifier.widthIn(max = 300.dp)
+            )
+        } else {
+            Card(
+                shape = RoundedCornerShape(
+                    topStart = 16.dp,
+                    topEnd = 16.dp,
+                    bottomStart = if (isMine) 16.dp else 4.dp,
+                    bottomEnd = if (isMine) 4.dp else 16.dp
+                ),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (isMine) PrimaryEmerald else CardBg
+                ),
+                modifier = Modifier.widthIn(max = 280.dp)
+            ) {
+                Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+                    Text(
+                        text = message.content,
+                        color = if (isMine) Color.White else TextPrimary,
+                        fontSize = 14.sp,
+                        lineHeight = 19.sp
+                    )
+                    Spacer(modifier = Modifier.height(3.dp))
+                    Row(
+                        modifier = Modifier.align(Alignment.End),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (isMine) {
+                            val isRead = !message.readAt.isNullOrEmpty() && message.readAt != "null"
+                            Icon(
+                                imageVector = if (isRead) Icons.Default.DoneAll else Icons.Default.Check,
+                                contentDescription = null,
+                                tint = if (isRead) Color(0xFF67E8F9) else Color.White.copy(alpha = 0.7f),
+                                modifier = Modifier.size(13.dp)
+                            )
+                        }
                     }
                 }
             }
