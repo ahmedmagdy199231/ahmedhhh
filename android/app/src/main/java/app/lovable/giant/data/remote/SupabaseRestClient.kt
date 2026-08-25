@@ -2,6 +2,7 @@ package app.lovable.giant.data.remote
 
 import android.util.Log
 import app.lovable.giant.data.SupabaseConfig
+import app.lovable.giant.data.models.CallRecordModel
 import app.lovable.giant.data.models.ChatMessage
 import app.lovable.giant.data.models.CommunityCommentModel
 import app.lovable.giant.data.models.CommunityPostModel
@@ -10,7 +11,11 @@ import app.lovable.giant.data.models.ConversationItem
 import app.lovable.giant.data.models.DailyTaskModel
 import app.lovable.giant.data.models.DirectMessage
 import app.lovable.giant.data.models.GiftCatalogModel
+import app.lovable.giant.data.models.LeaderboardDataModel
+import app.lovable.giant.data.models.LeaderboardRowModel
 import app.lovable.giant.data.models.LevelThresholdModel
+import app.lovable.giant.data.models.NotificationItemModel
+import app.lovable.giant.data.models.TopGameWinnerModel
 import app.lovable.giant.data.models.Room
 import app.lovable.giant.data.models.RoomMemberItem
 import app.lovable.giant.data.models.SearchUserItem
@@ -2269,4 +2274,319 @@ class SupabaseRestClient {
             Result.failure(e)
         }
     }
+
+    suspend fun getNotifications(currentUserId: String, token: String? = null): Result<List<NotificationItemModel>> = withContext(Dispatchers.IO) {
+        try {
+            val url = URL("$baseUrl/rest/v1/direct_messages?select=sender_id,receiver_id,content,message_type,created_at,read_at&or=(sender_id.eq.$currentUserId,receiver_id.eq.$currentUserId)&order=created_at.desc&limit=500")
+            val conn = (url.openConnection() as HttpURLConnection).apply {
+                requestMethod = "GET"
+                setRequestProperty("apikey", apiKey)
+                if (!token.isNullOrEmpty()) {
+                    setRequestProperty("Authorization", "Bearer $token")
+                }
+                connectTimeout = 15000
+                readTimeout = 15000
+            }
+
+            if (conn.responseCode in 200..299) {
+                val responseStr = BufferedReader(InputStreamReader(conn.inputStream)).use { it.readText() }
+                val msgs = JSONArray(responseStr)
+                val accMap = mutableMapOf<String, NotificationItemModel>()
+
+                for (i in 0 until msgs.length()) {
+                    val m = msgs.getJSONObject(i)
+                    val senderId = m.getString("sender_id")
+                    val receiverId = m.getString("receiver_id")
+                    val otherId = if (senderId == currentUserId) receiverId else senderId
+                    val isUnread = receiverId == currentUserId && m.isNull("read_at")
+                    val content = m.optString("content", "")
+                    val msgType = m.optString("message_type", "text")
+                    val createdAt = m.optString("created_at", "")
+
+                    val existing = accMap[otherId]
+                    if (existing == null) {
+                        val displayLast = when {
+                            content.isNotBlank() -> content
+                            msgType == "image" -> "🖼️ صورة"
+                            msgType == "voice" -> "🎙️ رسالة صوتية"
+                            msgType == "track" -> "🎵 مقطع صوتي"
+                            else -> "رسالة جديدة"
+                        }
+                        accMap[otherId] = NotificationItemModel(
+                            otherId = otherId,
+                            username = "مستخدم",
+                            avatarUrl = null,
+                            lastMessage = displayLast,
+                            messageType = msgType,
+                            createdAt = createdAt,
+                            unreadCount = if (isUnread) 1 else 0
+                        )
+                    } else if (isUnread) {
+                        accMap[otherId] = existing.copy(unreadCount = existing.unreadCount + 1)
+                    }
+                }
+
+                val otherIds = accMap.keys.toList()
+                if (otherIds.isEmpty()) {
+                    return@withContext Result.success(emptyList())
+                }
+
+                // Fetch profiles for names and avatars
+                val profUrl = URL("$baseUrl/rest/v1/profiles?select=id,username,avatar_url&id=in.(${otherIds.joinToString(",")})")
+                val profConn = (profUrl.openConnection() as HttpURLConnection).apply {
+                    requestMethod = "GET"
+                    setRequestProperty("apikey", apiKey)
+                    if (!token.isNullOrEmpty()) {
+                        setRequestProperty("Authorization", "Bearer $token")
+                    }
+                }
+
+                val profilesMap = mutableMapOf<String, Pair<String, String?>>()
+                if (profConn.responseCode in 200..299) {
+                    val profStr = BufferedReader(InputStreamReader(profConn.inputStream)).use { it.readText() }
+                    val profArr = JSONArray(profStr)
+                    for (i in 0 until profArr.length()) {
+                        val p = profArr.getJSONObject(i)
+                        profilesMap[p.getString("id")] = Pair(
+                            p.optString("username", "مستخدم"),
+                            p.optString("avatar_url").takeIf { it.isNotBlank() }
+                        )
+                    }
+                }
+
+                val resultList = accMap.values.map { item ->
+                    val prof = profilesMap[item.otherId]
+                    item.copy(
+                        username = prof?.first ?: item.username,
+                        avatarUrl = prof?.second ?: item.avatarUrl
+                    )
+                }.sortedWith(compareByDescending<NotificationItemModel> { it.unreadCount }.thenByDescending { it.createdAt })
+
+                Result.success(resultList)
+            } else {
+                Result.failure(Exception("Failed to fetch notifications: ${conn.responseCode}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun markAllNotificationsRead(currentUserId: String, token: String? = null): Result<Boolean> = withContext(Dispatchers.IO) {
+        try {
+            val url = URL("$baseUrl/rest/v1/direct_messages?receiver_id=eq.$currentUserId&read_at=is.null")
+            val conn = (url.openConnection() as HttpURLConnection).apply {
+                requestMethod = "PATCH"
+                setRequestProperty("apikey", apiKey)
+                setRequestProperty("Content-Type", "application/json")
+                if (!token.isNullOrEmpty()) {
+                    setRequestProperty("Authorization", "Bearer $token")
+                }
+                doOutput = true
+            }
+
+            val body = JSONObject().apply {
+                put("read_at", java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US).apply {
+                    timeZone = java.util.TimeZone.getTimeZone("UTC")
+                }.format(java.util.Date()))
+            }
+
+            OutputStreamWriter(conn.outputStream).use { it.write(body.toString()) }
+            Result.success(conn.responseCode in 200..299)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getWeeklyLeaderboards(limit: Int = 20, token: String? = null): Result<LeaderboardDataModel> = withContext(Dispatchers.IO) {
+        try {
+            val url = URL("$baseUrl/rest/v1/rpc/get_weekly_leaderboards")
+            val conn = (url.openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"
+                setRequestProperty("apikey", apiKey)
+                setRequestProperty("Content-Type", "application/json")
+                if (!token.isNullOrEmpty()) {
+                    setRequestProperty("Authorization", "Bearer $token")
+                }
+                doOutput = true
+                connectTimeout = 15000
+                readTimeout = 15000
+            }
+
+            val payload = JSONObject().apply { put("_limit", limit) }
+            OutputStreamWriter(conn.outputStream).use { it.write(payload.toString()) }
+
+            if (conn.responseCode in 200..299) {
+                val responseStr = BufferedReader(InputStreamReader(conn.inputStream)).use { it.readText() }
+                val json = JSONObject(responseStr)
+
+                fun parseRows(arr: JSONArray?): List<LeaderboardRowModel> {
+                    if (arr == null) return emptyList()
+                    val list = mutableListOf<LeaderboardRowModel>()
+                    for (i in 0 until arr.length()) {
+                        val obj = arr.getJSONObject(i)
+                        val breakdownObj = obj.optJSONObject("breakdown")
+                        val breakdownMap = mutableMapOf<String, Long>()
+                        if (breakdownObj != null) {
+                            val keys = breakdownObj.keys()
+                            while (keys.hasNext()) {
+                                val k = keys.next()
+                                breakdownMap[k] = breakdownObj.optLong(k, 0)
+                            }
+                        }
+                        list.add(
+                            LeaderboardRowModel(
+                                userId = obj.getString("user_id"),
+                                username = obj.optString("username", "مستخدم"),
+                                avatarUrl = obj.optString("avatar_url").takeIf { it.isNotBlank() },
+                                score = obj.optLong("score", 0),
+                                breakdown = breakdownMap
+                            )
+                        )
+                    }
+                    return list
+                }
+
+                val data = LeaderboardDataModel(
+                    posters = parseRows(json.optJSONArray("posters")),
+                    spenders = parseRows(json.optJSONArray("spenders")),
+                    overall = parseRows(json.optJSONArray("overall")),
+                    weekStart = json.optString("week_start").takeIf { it.isNotBlank() },
+                    weekEnd = json.optString("week_end").takeIf { it.isNotBlank() }
+                )
+                Result.success(data)
+            } else {
+                Result.failure(Exception("Failed to get leaderboards: ${conn.responseCode}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getTopGameWinners(limit: Int = 20, token: String? = null): Result<List<TopGameWinnerModel>> = withContext(Dispatchers.IO) {
+        try {
+            val url = URL("$baseUrl/rest/v1/rpc/get_top_game_winners")
+            val conn = (url.openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"
+                setRequestProperty("apikey", apiKey)
+                setRequestProperty("Content-Type", "application/json")
+                if (!token.isNullOrEmpty()) {
+                    setRequestProperty("Authorization", "Bearer $token")
+                }
+                doOutput = true
+                connectTimeout = 15000
+                readTimeout = 15000
+            }
+
+            val payload = JSONObject().apply { put("_limit", limit) }
+            OutputStreamWriter(conn.outputStream).use { it.write(payload.toString()) }
+
+            if (conn.responseCode in 200..299) {
+                val responseStr = BufferedReader(InputStreamReader(conn.inputStream)).use { it.readText() }
+                val arr = JSONArray(responseStr)
+                val list = mutableListOf<TopGameWinnerModel>()
+                for (i in 0 until arr.length()) {
+                    val obj = arr.getJSONObject(i)
+                    list.add(
+                        TopGameWinnerModel(
+                            userId = obj.getString("user_id"),
+                            username = obj.optString("username", "مستخدم"),
+                            avatarUrl = obj.optString("avatar_url").takeIf { it.isNotBlank() },
+                            wins = obj.optLong("wins", 0)
+                        )
+                    )
+                }
+                Result.success(list)
+            } else {
+                Result.failure(Exception("Failed to get game winners: ${conn.responseCode}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getCallsHistory(currentUserId: String, token: String? = null): Result<List<CallRecordModel>> = withContext(Dispatchers.IO) {
+        try {
+            val url = URL("$baseUrl/rest/v1/calls?select=*&or=(caller_id.eq.$currentUserId,callee_id.eq.$currentUserId)&order=started_at.desc&limit=100")
+            val conn = (url.openConnection() as HttpURLConnection).apply {
+                requestMethod = "GET"
+                setRequestProperty("apikey", apiKey)
+                if (!token.isNullOrEmpty()) {
+                    setRequestProperty("Authorization", "Bearer $token")
+                }
+                connectTimeout = 15000
+                readTimeout = 15000
+            }
+
+            if (conn.responseCode in 200..299) {
+                val responseStr = BufferedReader(InputStreamReader(conn.inputStream)).use { it.readText() }
+                val arr = JSONArray(responseStr)
+                val rawCalls = mutableListOf<CallRecordModel>()
+                val userIdsToFetch = mutableSetOf<String>()
+
+                for (i in 0 until arr.length()) {
+                    val obj = arr.getJSONObject(i)
+                    val callerId = obj.getString("caller_id")
+                    val calleeId = obj.getString("callee_id")
+                    val isIncoming = calleeId == currentUserId
+                    val otherId = if (isIncoming) callerId else calleeId
+                    userIdsToFetch.add(otherId)
+
+                    rawCalls.add(
+                        CallRecordModel(
+                            id = obj.getString("id"),
+                            callerId = callerId,
+                            calleeId = calleeId,
+                            otherUserId = otherId,
+                            callType = obj.optString("call_type", "audio"),
+                            status = obj.optString("status", "ended"),
+                            startedAt = obj.optString("started_at", ""),
+                            durationSeconds = obj.optLong("duration_seconds", 0),
+                            endReason = obj.optString("end_reason").takeIf { it.isNotBlank() },
+                            isIncoming = isIncoming
+                        )
+                    )
+                }
+
+                if (userIdsToFetch.isNotEmpty()) {
+                    val profUrl = URL("$baseUrl/rest/v1/profiles?select=id,username,avatar_url&id=in.(${userIdsToFetch.joinToString(",")})")
+                    val profConn = (profUrl.openConnection() as HttpURLConnection).apply {
+                        requestMethod = "GET"
+                        setRequestProperty("apikey", apiKey)
+                        if (!token.isNullOrEmpty()) {
+                            setRequestProperty("Authorization", "Bearer $token")
+                        }
+                    }
+
+                    val profilesMap = mutableMapOf<String, Pair<String, String?>>()
+                    if (profConn.responseCode in 200..299) {
+                        val profStr = BufferedReader(InputStreamReader(profConn.inputStream)).use { it.readText() }
+                        val profArr = JSONArray(profStr)
+                        for (i in 0 until profArr.length()) {
+                            val p = profArr.getJSONObject(i)
+                            profilesMap[p.getString("id")] = Pair(
+                                p.optString("username", "مستخدم"),
+                                p.optString("avatar_url").takeIf { it.isNotBlank() }
+                            )
+                        }
+                    }
+
+                    val enriched = rawCalls.map { c ->
+                        val prof = profilesMap[c.otherUserId]
+                        c.copy(
+                            otherUsername = prof?.first ?: "مستخدم",
+                            otherAvatarUrl = prof?.second
+                        )
+                    }
+                    Result.success(enriched)
+                } else {
+                    Result.success(rawCalls)
+                }
+            } else {
+                Result.failure(Exception("Failed to fetch calls: ${conn.responseCode}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }
+

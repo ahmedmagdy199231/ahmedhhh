@@ -7,12 +7,16 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import app.lovable.giant.ui.achievements.AchievementsScreen
 import app.lovable.giant.ui.auth.LoginScreen
 import app.lovable.giant.ui.auth.RegisterScreen
+import app.lovable.giant.ui.calls.CallsHistoryScreen
+import app.lovable.giant.ui.calls.DirectCallScreen
 import app.lovable.giant.ui.chats.ChatsListScreen
 import app.lovable.giant.ui.chats.DirectChatScreen
 import app.lovable.giant.ui.community.CommunityScreen
 import app.lovable.giant.ui.games.GamesScreen
+import app.lovable.giant.ui.notifications.NotificationsScreen
 import app.lovable.giant.ui.profile.ProfileScreen
 import app.lovable.giant.ui.rooms.RoomDetailScreen
 import app.lovable.giant.ui.rooms.RoomsListScreen
@@ -37,6 +41,13 @@ sealed class Screen(val route: String) {
     object DailyTasks : Screen("daily_tasks")
     object Community : Screen("community")
     object Games : Screen("games")
+    object Notifications : Screen("notifications")
+    object Achievements : Screen("achievements")
+    object Calls : Screen("calls")
+    object DirectCall : Screen("direct_call/{peerId}/{callType}/{isIncoming}") {
+        fun createRoute(peerId: String, callType: String = "audio", isIncoming: Boolean = false) =
+            "direct_call/$peerId/$callType/$isIncoming"
+    }
 }
 
 @Composable
@@ -111,6 +122,15 @@ fun GiantNavGraph(
                 },
                 onNavigateToGames = {
                     navController.navigate(Screen.Games.route)
+                },
+                onNavigateToNotifications = {
+                    navController.navigate(Screen.Notifications.route)
+                },
+                onNavigateToAchievements = {
+                    navController.navigate(Screen.Achievements.route)
+                },
+                onNavigateToCalls = {
+                    navController.navigate(Screen.Calls.route)
                 }
             )
         }
@@ -192,6 +212,58 @@ fun GiantNavGraph(
             DirectChatScreen(
                 otherUserId = otherUserId,
                 onNavigateBack = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        composable(Screen.Notifications.route) {
+            NotificationsScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                onOpenDirectChat = { otherUserId ->
+                    navController.navigate(Screen.DirectChat.createRoute(otherUserId))
+                }
+            )
+        }
+
+        composable(Screen.Achievements.route) {
+            AchievementsScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        composable(Screen.Calls.route) {
+            CallsHistoryScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                onStartCall = { peerId, callType ->
+                    navController.navigate(Screen.DirectCall.createRoute(peerId, callType, false))
+                }
+            )
+        }
+
+        composable(
+            route = Screen.DirectCall.route,
+            arguments = listOf(
+                navArgument("peerId") { type = NavType.StringType },
+                navArgument("callType") { type = NavType.StringType },
+                navArgument("isIncoming") { type = NavType.BoolType }
+            )
+        ) { backStackEntry ->
+            val peerId = backStackEntry.arguments?.getString("peerId") ?: ""
+            val callType = backStackEntry.arguments?.getString("callType") ?: "audio"
+            val isIncoming = backStackEntry.arguments?.getBoolean("isIncoming") ?: false
+
+            DirectCallScreen(
+                peerId = peerId,
+                callType = callType,
+                isIncoming = isIncoming,
+                onCallEnded = {
                     navController.popBackStack()
                 }
             )

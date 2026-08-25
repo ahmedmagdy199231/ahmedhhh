@@ -22,11 +22,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.DynamicFeed
+import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Forum
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Message
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.ShoppingBag
 import androidx.compose.material.icons.filled.SportsEsports
@@ -77,6 +80,9 @@ fun RoomsListScreen(
     onNavigateToTasks: () -> Unit,
     onNavigateToCommunity: () -> Unit,
     onNavigateToGames: () -> Unit = {},
+    onNavigateToNotifications: () -> Unit = {},
+    onNavigateToAchievements: () -> Unit = {},
+    onNavigateToCalls: () -> Unit = {},
     viewModel: RoomsViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -89,7 +95,7 @@ fun RoomsListScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(CardBg)
-                    .padding(horizontal = 12.dp, vertical = 12.dp),
+                    .padding(horizontal = 8.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
@@ -98,65 +104,88 @@ fun RoomsListScreen(
                         imageVector = Icons.Default.Forum,
                         contentDescription = null,
                         tint = PrimaryEmerald,
-                        modifier = Modifier.size(26.dp)
+                        modifier = Modifier.size(24.dp)
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = "الغرف الصوتية",
-                        fontSize = 18.sp,
+                        fontSize = 17.sp,
                         fontWeight = FontWeight.Bold,
                         color = TextPrimary
                     )
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = onNavigateToGames) {
+                    IconButton(onClick = onNavigateToNotifications, modifier = Modifier.size(36.dp)) {
+                        Icon(
+                            imageVector = Icons.Default.Notifications,
+                            contentDescription = "الإشعارات",
+                            tint = Color(0xFFFBBF24),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    IconButton(onClick = onNavigateToAchievements, modifier = Modifier.size(36.dp)) {
+                        Icon(
+                            imageVector = Icons.Default.EmojiEvents,
+                            contentDescription = "الإنجازات",
+                            tint = Color(0xFFF59E0B),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    IconButton(onClick = onNavigateToCalls, modifier = Modifier.size(36.dp)) {
+                        Icon(
+                            imageVector = Icons.Default.Phone,
+                            contentDescription = "المكالمات",
+                            tint = Color(0xFF10B981),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    IconButton(onClick = onNavigateToGames, modifier = Modifier.size(36.dp)) {
                         Icon(
                             imageVector = Icons.Default.SportsEsports,
                             contentDescription = "الألعاب",
-                            tint = Color(0xFFF43F5E)
+                            tint = Color(0xFFF43F5E),
+                            modifier = Modifier.size(20.dp)
                         )
                     }
-                    IconButton(onClick = onNavigateToCommunity) {
+                    IconButton(onClick = onNavigateToCommunity, modifier = Modifier.size(36.dp)) {
                         Icon(
                             imageVector = Icons.Default.DynamicFeed,
                             contentDescription = "المجتمع والقصص",
-                            tint = Color(0xFFA78BFA)
+                            tint = Color(0xFFA78BFA),
+                            modifier = Modifier.size(20.dp)
                         )
                     }
-                    IconButton(onClick = onNavigateToStore) {
+                    IconButton(onClick = onNavigateToStore, modifier = Modifier.size(36.dp)) {
                         Icon(
                             imageVector = Icons.Default.ShoppingBag,
                             contentDescription = "المتجر",
-                            tint = Color(0xFFFBBF24)
+                            tint = Color(0xFFFBBF24),
+                            modifier = Modifier.size(20.dp)
                         )
                     }
-                    IconButton(onClick = onNavigateToTasks) {
+                    IconButton(onClick = onNavigateToTasks, modifier = Modifier.size(36.dp)) {
                         Icon(
                             imageVector = Icons.Default.Checklist,
                             contentDescription = "المهام والجوائز",
-                            tint = Color(0xFF38BDF8)
+                            tint = Color(0xFF38BDF8),
+                            modifier = Modifier.size(20.dp)
                         )
                     }
-                    IconButton(onClick = onNavigateToChats) {
+                    IconButton(onClick = onNavigateToChats, modifier = Modifier.size(36.dp)) {
                         Icon(
                             imageVector = Icons.Default.Message,
                             contentDescription = "الرسائل الخاصة",
-                            tint = PrimaryEmerald
+                            tint = PrimaryEmerald,
+                            modifier = Modifier.size(20.dp)
                         )
                     }
-                    IconButton(onClick = onNavigateToProfile) {
+                    IconButton(onClick = onNavigateToProfile, modifier = Modifier.size(36.dp)) {
                         Icon(
                             imageVector = Icons.Default.Person,
                             contentDescription = "الملف الشخصي",
-                            tint = PrimaryEmerald
-                        )
-                    }
-                    IconButton(onClick = { viewModel.refreshRooms() }) {
-                        Icon(
-                            imageVector = Icons.Default.Refresh,
-                            contentDescription = "Refresh",
-                            tint = TextSecondary
+                            tint = PrimaryEmerald,
+                            modifier = Modifier.size(20.dp)
                         )
                     }
                 }
