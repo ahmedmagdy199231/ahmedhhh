@@ -89,6 +89,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const signalChRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const remoteSetRef = useRef(false);
   const statusRef = useRef<CallStatus>("idle");
+  const pendingSignalsRef = useRef<Map<string, Array<{ signal_type: string; payload: unknown }>>>(new Map());
   useEffect(() => { statusRef.current = state.status; }, [state.status]);
 
   const stopRing = () => { stopRingRef.current?.(); stopRingRef.current = null; };
@@ -338,8 +339,6 @@ export function CallProvider({ children }: { children: ReactNode }) {
 
   // Buffer for signals that arrive before our PC is ready (offer can land
   // before / racing with the calls INSERT row on the callee side).
-  const pendingSignalsRef = useRef<Map<string, Array<{ signal_type: string; payload: unknown }>>>(new Map());
-
   const handleSignal = useCallback(async (s: { from_user: string; to_user: string; signal_type: string; payload: unknown; call_id: string }) => {
     if (!user || s.to_user !== user.id) return;
 

@@ -48,20 +48,38 @@ function NotFoundComponent() {
 }
 
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
-  console.error(error);
+  console.error("[Route Error]", error);
   const router = useRouter();
   const { t } = useTranslation();
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
         <h1 className="text-xl font-semibold">{t("common.error")}</h1>
-        <div className="mt-6 flex flex-wrap justify-center gap-2">
+        {error?.message && !error.message.includes("Object") && (
+          <p className="mt-2 text-xs text-muted-foreground break-words max-h-24 overflow-y-auto px-2">
+            {error.message}
+          </p>
+        )}
+        <div className="mt-6 flex flex-wrap justify-center gap-3">
           <button
-            onClick={() => { router.invalidate(); reset(); }}
-            className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+            onClick={() => {
+              router.invalidate();
+              reset();
+            }}
+            className="rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-primary-foreground shadow-md transition active:scale-95"
+          >
+            إعادة المحاولة
+          </button>
+          <a
+            href="/"
+            onClick={(e) => {
+              e.preventDefault();
+              window.location.href = "/";
+            }}
+            className="rounded-xl border border-border bg-card px-5 py-2.5 text-sm font-semibold text-foreground transition hover:bg-accent active:scale-95"
           >
             {t("common.back")}
-          </button>
+          </a>
         </div>
       </div>
     </div>
